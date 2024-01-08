@@ -1,6 +1,7 @@
 const inquirer = require("inquirer");
 const db = require("./db/connecter.js");
-
+// var firstName = "";
+// var lastName = "";
 db.connect((err) => {
   if (err) throw err;
   console.log("Database connected.");
@@ -39,20 +40,27 @@ var employee_tracker = function () {
         });
         //what to do if user chooses View All Roles
       } else if (answers.prompt === "View All Roles") {
-        db.query(`SELECT * FROM roles`, (err, result) => {
-          if (err) throw err;
-          console.log("Viewing All Roles: ");
-          console.table(result);
-          employee_tracker();
-        });
+        db.query(
+          `SELECT roles.title, roles.salary, roles.dept_id, dept.name AS dept_name  FROM roles JOIN dept ON roles.dept_id = dept.id `,
+          (err, result) => {
+            if (err) throw err;
+            console.log("Viewing All Roles: ");
+            console.table(result);
+            employee_tracker();
+          }
+        );
         //what to do if user chooses View All Employees
       } else if (answers.prompt === "View All Employees") {
-        db.query(`SELECT * FROM employees`, (err, result) => {
-          if (err) throw err;
-          console.log("Viewing All Employees: ");
-          console.table(result);
-          employee_tracker();
-        });
+        db.query(
+          //`SELECT A.manager_id, B.last_name AS manager_last_name from employees A, employees B Where A.manager_id = B.id`,
+          `SELECT employees.first_name, employees.last_name, employees.roles_id, employees.manager_id, B.last_name as manager_last_name, roles.title, roles.salary, roles.dept_id, dept.name as dept_name FROM employees join employees B ON employees.manager_id = b.id JOIN roles ON employees.roles_id = roles.id JOIN dept ON roles.dept_id = dept.id`,
+          (err, result) => {
+            if (err) throw err;
+            console.log("Viewing All Employees: ");
+            console.table(result);
+            employee_tracker();
+          }
+        );
         //what to do if user chooses Add A Department
       } else if (answers.prompt === "Add A Department") {
         inquirer
@@ -149,85 +157,106 @@ var employee_tracker = function () {
         });
         //what to do if user chooses Add An Employee
       } else if (answers.prompt === "Add An Employee") {
-        db.query(`SELECT * FROM employees, roles`, (err, result) => {
-          if (err) throw err;
-          //prompt the user to add the employees first name, then last name, then role, then manager
-          inquirer
-            .prompt([
-              {
-                type: "input",
-                name: "firstName",
-                message: "Enter employees first name.",
-                validate: (firstNameInput) => {
-                  if (firstNameInput) {
-                    return true;
-                  } else {
-                    console.log("Please Add A First Name!");
-                    return false;
-                  }
+        db.query(
+          `SELECT * FROM employees`,
+          //`SELECT * FROM roles; SELECT employees.id, roles.id as roles_id, employees.first_name, employees.last_name, employees.roles_id, employees.manager_id, B.last_name as manager_last_name, roles.title, roles.salary, roles.dept_id, dept.name as dept_name FROM employees join employees B ON employees.manager_id = b.id JOIN roles ON employees.roles_id = roles.id JOIN dept ON roles.dept_id = dept.id`,
+          (err, result) => {
+            if (err) throw err;
+            //prompt the user to add the employees first name, then last name, then role, then manager
+            inquirer
+              .prompt([
+                {
+                  type: "input",
+                  name: "firstName",
+                  message: "Enter employees first name.",
+                  validate: (firstNameInput) => {
+                    if (firstNameInput) {
+                      return true;
+                    } else {
+                      console.log("Please Add A First Name!");
+                      return false;
+                    }
+                  },
                 },
-              },
-              {
-                type: "input",
-                name: "lastName",
-                message: "Enter employees last name.",
-                validate: (lastNameInput) => {
-                  if (lastNameInput) {
-                    return true;
-                  } else {
-                    console.log("Please Add A Last Name!");
-                    return false;
-                  }
+                {
+                  type: "input",
+                  name: "lastName",
+                  message: "Enter employees last name.",
+                  validate: (lastNameInput) => {
+                    if (lastNameInput) {
+                      return true;
+                    } else {
+                      console.log("Please Add A Last Name!");
+                      return false;
+                    }
+                  },
                 },
-              },
-              {
-                type: "list",
-                name: "role",
-                message: "Enter the employees role.",
-                choices: () => {
-                  var array = [];
-                  for (var i = 0; i < result.length; i++) {
-                    array.push(result[i].title);
-                  }
-                  var newArray = [...new Set(array)];
-                  return newArray;
+                {
+                  type: "list",
+                  name: "managerMan",
+                  message: "Choose a manager for the employee.",
+                  choices: () => {
+                    var array = [];
+                    for (var i = 0; i < result.length; i++) {
+                      array.push(result[i].last_name);
+                    }
+                    var managerArray = [...new Set(array)];
+                    return managerArray;
+                  },
                 },
-              },
-              {
-                type: "input",
-                name: "manager",
-                message: "Enter their managers id in the database(numeric).",
-                validate: (managerInput) => {
-                  if (managerInput) {
-                    return true;
-                  } else {
-                    console.log("Please Add A Manager!");
-                    return false;
+              ])
+              //take the results and append them to a variable to be added to the database
+              .then((answers) => {
+                var firstName = answers.firstName;
+                var lastName = answers.lastName;
+                for (var i = 0; i < result.length; i++) {
+                  if (result[i].last_name === answers.managerMan) {
+                    var managerInput = result[i];
                   }
-                },
-              },
-            ])
-            //take the results and append them to a variable to be added to the database
-            .then((answers) => {
-              for (var i = 0; i < result.length; i++) {
-                if (result[i].title === answers.role) {
-                  var role = result[i];
                 }
-              }
 
-              db.query(
-                `INSERT INTO employees (first_name, last_name, roles_id, manager_id) VALUES (?, ?, ?, ?)`,
-                [answers.firstName, answers.lastName, role.id, answers.manager],
-                (err, result) => {
+                db.query(`SELECT * FROM roles`, (err, result) => {
                   if (err) throw err;
-                  console.log(
-                    `Added ${answers.firstName} ${answers.lastName} to the database.`
-                  );
-                  employee_tracker();
-                }
-              );
-            });
-        });
+                  //prompt the user to add the employees first name, then last name, then role, then manager
+                  inquirer
+                    .prompt([
+                      {
+                        type: "list",
+                        name: "role",
+                        message: "Enter the employees role.",
+                        choices: () => {
+                          var array = [];
+                          for (var i = 0; i < result.length; i++) {
+                            array.push(result[i].title);
+                          }
+                          var newArray = [...new Set(array)];
+                          return newArray;
+                        },
+                      },
+                    ])
+                    //take the results and append them to a variable to be added to the database
+                    .then((answers) => {
+                      for (var i = 0; i < result.length; i++) {
+                        if (result[i].title === answers.role) {
+                          var role = result[i];
+                        }
+                      }
+                      db.query(
+                        `INSERT INTO employees (first_name, last_name, roles_id, manager_id) VALUES (?, ?, ?, ?)`,
+                        [firstName, lastName, role.id, managerInput.id],
+                        (err, result) => {
+                          if (err) throw err;
+                          console.log(
+                            `Added ${answers.firstName} ${answers.lastName} to the database.`
+                          );
+                          employee_tracker();
+                        }
+                      );
+                    });
+                });
+              });
+          }
+        );
         //what to do if user chooses Update An Employee Role
       } else if (answers.prompt === "Update An Employee Role") {
         db.query(`SELECT * FROM employees, roles`, (err, result) => {
@@ -250,7 +279,7 @@ var employee_tracker = function () {
               },
               {
                 type: "list",
-                name: "role",
+                name: "roleInput",
                 message: "Enter their new role",
                 choices: () => {
                   var array = [];
@@ -271,14 +300,14 @@ var employee_tracker = function () {
               }
 
               for (var i = 0; i < result.length; i++) {
-                if (result[i].title === answers.role) {
-                  var role = result[i];
+                if (result[i].title === answers.roleInput) {
+                  var roleInput = result[i];
                 }
               }
 
               db.query(
                 `UPDATE employees SET ? WHERE ?`,
-                [{ roles_id: role }, { last_name: name }],
+                [{ roles_id: roleInput.id }, { last_name: name.last_name }],
                 (err, result) => {
                   if (err) throw err;
                   console.log(

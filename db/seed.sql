@@ -19,7 +19,7 @@ VALUES ("project manager", 90000, 1),
 SELECT * FROM ROLES;
 
 INSERT INTO employees (first_name, last_name, roles_id, manager_id)
-VALUES ("Steve", "Brennan", 1, NULL),
+VALUES ("Steve", "Brennan", 1, 1),
     ("Duane", "Palmatier", 3, 1),
     ("Tom", "Bombadil", 2, 1),
     ("Martin", "King", 7, 1),
